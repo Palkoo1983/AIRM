@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { google } from 'googleapis';
-import { zonedTimeToUtc, formatInTimeZone } from 'date-fns-tz';
-import { addMinutes, parseISO } from 'date-fns';
+import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { addMinutes, parseISO, format } from 'date-fns';
 
 const app = express();
 app.use(cors());
@@ -44,8 +44,8 @@ function buildSlots(dateStr, busy) {
       return (t < bEnd) && (tEnd > bStart);
     });
     if (!overlaps) {
-      // ÚJ: date-fns-tz v3-hoz igazított formázás
-      slots.push(formatInTimeZone(t, TZ, 'HH:mm'));
+      const local = utcToZonedTime(t, TZ);
+      slots.push(format(local, 'HH:mm'));
     }
   }
   return Array.from(new Set(slots));
@@ -81,7 +81,7 @@ app.post('/api/calendar/book', async (req, res) => {
     if (!name || !email || !date || !time) return res.status(400).json({ error: 'missing_fields' });
 
     const auth = getOAuth2();
-    const calendar = google.calendar({ version: 'v3', auth });
+    the const calendar = google.calendar({ version: 'v3', auth });
 
     const startLocal = parseISO(`${date}T${time}:00`);
     const endLocal = addMinutes(startLocal, 30);
@@ -116,4 +116,4 @@ app.post('/api/calendar/book', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`AIRM mini running on http://localhost:3000`));
+app.listen(PORT, () => console.log(`AIRM mini running on http://localhost:${PORT}`));
