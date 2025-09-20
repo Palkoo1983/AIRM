@@ -2,8 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { google } from 'googleapis';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+// IMPORTANT: date-fns-tz v1.x CJS -> default import + destructuring
+import tz from 'date-fns-tz';
 import { addMinutes, parseISO, format } from 'date-fns';
+
+const { zonedTimeToUtc, utcToZonedTime } = tz;
 
 const app = express();
 app.use(cors());
@@ -13,7 +16,12 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 const TZ = 'Europe/Budapest';
 
-const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_CALENDAR_ID } = process.env;
+const {
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REFRESH_TOKEN,
+  GOOGLE_CALENDAR_ID,
+} = process.env;
 
 function getOAuth2() {
   const oAuth2Client = new google.auth.OAuth2(
@@ -26,22 +34,22 @@ function getOAuth2() {
 }
 
 function toISO(date) {
-  return date.toISOString().replace('.000Z','Z');
+  return date.toISOString().replace('.000Z', 'Z');
 }
 
 function buildSlots(dateStr, busy) {
   const startLocal = new Date(`${dateStr}T09:00:00`);
-  const endLocal   = new Date(`${dateStr}T17:00:00`);
+  const endLocal = new Date(`${dateStr}T17:00:00`);
   const start = zonedTimeToUtc(startLocal, TZ);
-  const end   = zonedTimeToUtc(endLocal, TZ);
+  const end = zonedTimeToUtc(endLocal, TZ);
 
-  let slots = [];
+  const slots = [];
   for (let t = start; t < end; t = addMinutes(t, 30)) {
     const tEnd = addMinutes(t, 30);
-    const overlaps = busy.some(b => {
+    const overlaps = busy.some((b) => {
       const bStart = new Date(b.start);
       const bEnd = new Date(b.end);
-      return (t < bEnd) && (tEnd > bStart);
+      return t < bEnd && tEnd > bStart;
     });
     if (!overlaps) {
       const local = utcToZonedTime(t, TZ);
@@ -63,7 +71,7 @@ app.get('/api/calendar/slots', async (req, res) => {
     const timeMax = toISO(zonedTimeToUtc(new Date(`${date}T17:00:00`), TZ));
 
     const fb = await calendar.freebusy.query({
-      requestBody: { timeMin, timeMax, timeZone: TZ, items: [{ id: GOOGLE_CALENDAR_ID }] }
+      requestBody: { timeMin, timeMax, timeZone: TZ, items: [{ id: GOOGLE_CALENDAR_ID }] },
     });
 
     const busy = fb.data.calendars[GOOGLE_CALENDAR_ID]?.busy || [];
@@ -95,7 +103,7 @@ app.post('/api/calendar/book', async (req, res) => {
       start: { dateTime: start, timeZone: TZ },
       end: { dateTime: end, timeZone: TZ },
       attendees: [{ email }],
-      reminders: { useDefault: true }
+      reminders: { useDefault: true },
     };
 
     if (!mode || mode === 'online') {
@@ -106,10 +114,15 @@ app.post('/api/calendar/book', async (req, res) => {
       calendarId: GOOGLE_CALENDAR_ID,
       requestBody,
       conferenceDataVersion: 1,
-      sendUpdates: 'all'
+      sendUpdates: 'all',
     });
 
-    res.json({ ok: true, eventId: resp.data.id, htmlLink: resp.data.htmlLink, hangoutLink: resp.data.hangoutLink });
+    res.json({
+      ok: true,
+      eventId: resp.data.id,
+      htmlLink: resp.data.htmlLink,
+      hangoutLink: resp.data.hangoutLink,
+    });
   } catch (e) {
     console.error(e.response?.data || e);
     res.status(500).json({ error: 'book_failed', details: e.response?.data || String(e) });
