@@ -81,7 +81,7 @@ app.post('/api/calendar/book', async (req, res) => {
     if (!name || !email || !date || !time) return res.status(400).json({ error: 'missing_fields' });
 
     const auth = getOAuth2();
-    the const calendar = google.calendar({ version: 'v3', auth });
+    const calendar = google.calendar({ version: 'v3', auth });
 
     const startLocal = parseISO(`${date}T${time}:00`);
     const endLocal = addMinutes(startLocal, 30);
